@@ -1,68 +1,84 @@
-#include <ArduinoJson.h>
-#include <ESP8266WiFi.h>
-#include <time.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+#include <Wire.h>
+#include <SSD1306Wire.h>
+ 
+ 
+#define my_ssid "Jacare_2G"
+#define my_password "coxinha1"
+ 
+const char* ntp_server = "a.st1.ntp.br"; 
+const int time_zone = -10800; 
+unsigned long int req_time = millis();
 
-#define my_ssid "my_ssid"
-#define my_password "my_password"
+ 
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, ntp_server, time_zone, 60000);
+ 
 
-const char* ssid = my_ssid;
-const char* password = my_password;
-
-int timezone = -4 * 3600;
-
-int dst = 0;
-unsigned int id = 0;
-
-unsigned long int reqTime = millis();
-
-void get_time(); 
-
-DynamicJsonDocument doc(2048);
-
-void setup() {
+SSD1306Wire oled(0x3C, 21, 22);
+ 
+ 
+void setup(){  
+  set_oled();
+  wifi_connect();
+}
   
-  Serial.begin(115200);
-  Serial.println();
-  Serial.print("Wifi connecting to ");
-  Serial.println( ssid );
+void loop(){
+  show_time();
+}
 
-  WiFi.begin(ssid,password);
-
-  Serial.println();
+void show_time(){
   
-  Serial.print("Connecting");
+  if(millis() - req_time > 900){
+    timeClient.update();
+    String now = timeClient.getFormattedTime();
+    oled.clear();
+    oled.drawString(63, 19, now);
+    oled.drawLine(10, 52, 117, 52);
+    oled.display();
+    req_time = millis();
+  }
 
-  while( WiFi.status() != WL_CONNECTED ){
+}
+
+void wifi_connect(){
+  WiFi.begin(my_ssid, my_password);
+  unsigned int timeout = millis();
+  while ((WiFi.status() != WL_CONNECTED)){
+      oled.clear();
+      oled.drawString(63, 12, "Connecting \nto wifi.");
+      oled.display();
+      oled.clear();
       delay(500);
-      Serial.print(".");        
+      oled.drawString(63, 12, "Connecting \nto wifi..");
+      oled.display();
+      oled.clear();
+      delay(500);
+      oled.drawString(63, 12, "Connecting \nto wifi...");
+      oled.display();
+      delay(500);
+      if((millis() - timeout > 5000)){
+        oled.clear();
+        oled.drawString(63, 12, "Fail!");
+        oled.display();
+        delay(5000);
+        timeout = millis();
+      }
   }
-
-
-  configTime(timezone, dst, "pool.ntp.org","time.nist.gov");
-  Serial.println("\nWaiting for Internet time");
-
-  while(!time(nullptr)){
-     Serial.print("*");
-     delay(1000);
-  }
-  Serial.println("\nTime response....OK");   
+  oled.clear();
+  oled.drawString(63, 12, "Connected \nDevice!");
+  oled.display();
+  delay(5000);
+  timeClient.begin();
 }
 
-void loop() {
-  get_time(); 
-}
+void set_oled(){
+  oled.init();
+  oled.clear();
+  oled.flipScreenVertically();
+  oled.setFont(ArialMT_Plain_24);
+  oled.setTextAlignment(TEXT_ALIGN_CENTER);
 
-void get_time(){
-  if (millis() - reqTime  > 60000){
-    time_t now = time(nullptr);
-    struct tm* p_tm = localtime(&now);
-    doc["id"] = id;
-    doc["hour"] = p_tm->tm_hour;
-    doc["minute"] = p_tm->tm_min;
-    doc["second"] = p_tm->tm_sec;
-    id++;
-    serializeJsonPretty(doc, Serial);
-    Serial.println();
-    reqTime = millis();
-  }
 }
