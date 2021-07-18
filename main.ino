@@ -9,7 +9,7 @@
 #define my_password "coxinha1"
  
 const char* ntp_server = "a.st1.ntp.br"; 
-const int time_zone = -10800; 
+const int time_zone = -14400; 
 unsigned long int req_time = millis();
 
  
@@ -33,6 +33,7 @@ void show_time(){
   
   if(millis() - req_time > 900){
     timeClient.update();
+    //Serial.println(timeClient.getFormattedTime());
     String now = timeClient.getFormattedTime();
     oled.clear();
     oled.drawString(63, 19, now);
